@@ -151,9 +151,30 @@
             max-width: 200px;
         }
         
+        .time-slots {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .time-slot {
+            display: flex;
+            align-items: center;
+        }
+        
+        .time-slot input {
+            width: auto;
+            margin-right: 5px;
+        }
+        
         @media (max-width: 768px) {
             .filters {
                 flex-direction: column;
+            }
+            
+            .time-slots {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
@@ -178,6 +199,24 @@
                 <div class="form-group">
                     <label for="eventDate">Date of Event:</label>
                     <input type="date" id="eventDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="timeSlots">Time Slots (24-hour format):</label>
+                    <div class="time-slots">
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="08:00-09:00"> 08:00-09:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="09:00-10:00"> 09:00-10:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="10:00-11:00"> 10:00-11:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="11:00-12:00"> 11:00-12:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="12:00-13:00"> 12:00-13:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="13:00-14:00"> 13:00-14:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="14:00-15:00"> 14:00-15:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="15:00-16:00"> 15:00-16:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="16:00-17:00"> 16:00-17:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="17:00-18:00"> 17:00-18:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="18:00-19:00"> 18:00-19:00</div>
+                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="19:00-20:00"> 19:00-20:00</div>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -207,7 +246,7 @@
                 
                 <div class="form-group">
                     <label for="email">Email Address:</label>
-                    <input type="email" id="email" required placeholder="We'll contact you at this email">
+                    <input type="email" id="email" required>
                 </div>
                 
                 <div class="form-group">
@@ -266,6 +305,7 @@
                     <thead>
                         <tr>
                             <th>Date</th>
+                            <th>Time</th>
                             <th>Venue</th>
                             <th>Group Size</th>
                             <th>Booked By</th>
@@ -343,7 +383,7 @@
                 if (filteredBookings.length === 0) {
                     const row = bookingsTable.insertRow();
                     const cell = row.insertCell(0);
-                    cell.colSpan = 7;
+                    cell.colSpan = 8;
                     cell.textContent = 'No bookings found';
                     cell.style.textAlign = 'center';
                     return;
@@ -353,13 +393,14 @@
                     const row = bookingsTable.insertRow();
                     
                     row.insertCell(0).textContent = formatDate(booking.eventDate);
-                    row.insertCell(1).textContent = booking.venue;
-                    row.insertCell(2).textContent = booking.groupSize;
-                    row.insertCell(3).textContent = booking.bookedBy;
-                    row.insertCell(4).textContent = booking.email || 'N/A';
-                    row.insertCell(5).textContent = booking.notes;
+                    row.insertCell(1).textContent = booking.timeSlots.join(', ');
+                    row.insertCell(2).textContent = booking.venue;
+                    row.insertCell(3).textContent = booking.groupSize;
+                    row.insertCell(4).textContent = booking.bookedBy;
+                    row.insertCell(5).textContent = booking.email;
+                    row.insertCell(6).textContent = booking.notes;
                     
-                    const actionsCell = row.insertCell(6);
+                    const actionsCell = row.insertCell(7);
                     const deleteButton = document.createElement('button');
                     deleteButton.textContent = 'Cancel';
                     deleteButton.style.backgroundColor = '#e74c3c';
@@ -383,11 +424,21 @@
                 e.preventDefault();
                 
                 const eventDate = document.getElementById('eventDate').value;
+                const timeSlotCheckboxes = document.querySelectorAll('input[name="timeSlot"]:checked');
                 const venue = document.getElementById('venue').value;
                 const groupSize = document.getElementById('groupSize').value;
                 const bookedBy = document.getElementById('bookedBy').value;
                 const email = document.getElementById('email').value;
                 const notes = document.getElementById('notes').value;
+                
+                // Validate time slots
+                if (timeSlotCheckboxes.length === 0) {
+                    alert('Please select at least one time slot');
+                    return;
+                }
+                
+                // Get selected time slots
+                const timeSlots = Array.from(timeSlotCheckboxes).map(cb => cb.value);
                 
                 // Basic validation for group size
                 const maxCapacity = {
@@ -406,26 +457,38 @@
                     return;
                 }
                 
-                // Email validation
+                // Validate email format
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(email)) {
-                    alert('Please enter a valid email address.');
+                    alert('Please enter a valid email address');
                     return;
                 }
                 
-                // Check for existing bookings on the same date and venue
-                const existingBooking = bookings.find(booking => 
-                    booking.eventDate === eventDate && booking.venue === venue
-                );
+                // Check for existing bookings on the same date, venue and time
+                let timeConflict = false;
+                const conflictingTimes = [];
                 
-                if (existingBooking) {
-                    alert(`This venue is already booked for ${formatDate(eventDate)} by ${existingBooking.bookedBy}. Please select a different date or venue.`);
+                bookings.forEach(booking => {
+                    if (booking.eventDate === eventDate && booking.venue === venue) {
+                        // Check for time slot conflicts
+                        timeSlots.forEach(timeSlot => {
+                            if (booking.timeSlots.includes(timeSlot)) {
+                                timeConflict = true;
+                                conflictingTimes.push(timeSlot);
+                            }
+                        });
+                    }
+                });
+                
+                if (timeConflict) {
+                    alert(`This venue is already booked for ${formatDate(eventDate)} during the following times: ${conflictingTimes.join(', ')}. Please select different time slots.`);
                     return;
                 }
                 
                 // Add new booking
                 const newBooking = {
                     eventDate,
+                    timeSlots,
                     venue,
                     groupSize,
                     bookedBy,
@@ -486,6 +549,10 @@
                 bookingsList.classList.add('hidden');
                 adminPassword.value = '';
             });
+            
+            // Set minimum date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('eventDate').min = today;
             
             // Initial display
             if (localStorage.getItem('isLoggedIn') === 'true') {

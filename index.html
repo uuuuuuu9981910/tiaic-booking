@@ -206,6 +206,11 @@
                 </div>
                 
                 <div class="form-group">
+                    <label for="email">Email Address:</label>
+                    <input type="email" id="email" required placeholder="We'll contact you at this email">
+                </div>
+                
+                <div class="form-group">
                     <label for="notes">Notes:</label>
                     <textarea id="notes"></textarea>
                 </div>
@@ -214,7 +219,7 @@
             </form>
             
             <div id="confirmationMessage" class="confirmation-message hidden">
-                Thank you for your booking request! Your request has been submitted successfully.
+                Thank you for your booking request! We will confirm your booking after your payment.
             </div>
         </div>
         
@@ -264,6 +269,7 @@
                             <th>Venue</th>
                             <th>Group Size</th>
                             <th>Booked By</th>
+                            <th>Email</th>
                             <th>Notes</th>
                             <th>Actions</th>
                         </tr>
@@ -302,7 +308,7 @@
             const adminPassword = document.getElementById('adminPassword');
             
             // Company password - in a real app, this would be server-side
-            const companyPassword = "TembusuInstitute2025";
+            const companyPassword = "TIAIC2025";
             
             // Format date for display
             function formatDate(dateString) {
@@ -337,7 +343,7 @@
                 if (filteredBookings.length === 0) {
                     const row = bookingsTable.insertRow();
                     const cell = row.insertCell(0);
-                    cell.colSpan = 6;
+                    cell.colSpan = 7;
                     cell.textContent = 'No bookings found';
                     cell.style.textAlign = 'center';
                     return;
@@ -350,9 +356,10 @@
                     row.insertCell(1).textContent = booking.venue;
                     row.insertCell(2).textContent = booking.groupSize;
                     row.insertCell(3).textContent = booking.bookedBy;
-                    row.insertCell(4).textContent = booking.notes;
+                    row.insertCell(4).textContent = booking.email || 'N/A';
+                    row.insertCell(5).textContent = booking.notes;
                     
-                    const actionsCell = row.insertCell(5);
+                    const actionsCell = row.insertCell(6);
                     const deleteButton = document.createElement('button');
                     deleteButton.textContent = 'Cancel';
                     deleteButton.style.backgroundColor = '#e74c3c';
@@ -379,6 +386,7 @@
                 const venue = document.getElementById('venue').value;
                 const groupSize = document.getElementById('groupSize').value;
                 const bookedBy = document.getElementById('bookedBy').value;
+                const email = document.getElementById('email').value;
                 const notes = document.getElementById('notes').value;
                 
                 // Basic validation for group size
@@ -398,6 +406,13 @@
                     return;
                 }
                 
+                // Email validation
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    alert('Please enter a valid email address.');
+                    return;
+                }
+                
                 // Check for existing bookings on the same date and venue
                 const existingBooking = bookings.find(booking => 
                     booking.eventDate === eventDate && booking.venue === venue
@@ -414,6 +429,7 @@
                     venue,
                     groupSize,
                     bookedBy,
+                    email,
                     notes
                 };
                 

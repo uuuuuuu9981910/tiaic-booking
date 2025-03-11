@@ -64,6 +64,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
+            margin-right: 5px;
         }
         
         button:hover {
@@ -161,6 +162,33 @@
             flex: 1;
         }
         
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .confirmed-booking {
+            background-color: #e8f7ed;
+        }
+        
+        .status-label {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-pending {
+            background-color: #ffeeba;
+            color: #856404;
+        }
+        
+        .status-confirmed {
+            background-color: #c3e6cb;
+            color: #155724;
+        }
+        
         @media (max-width: 768px) {
             .filters {
                 flex-direction: column;
@@ -173,6 +201,10 @@
             
             .time-input {
                 width: 100%;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
             }
         }
     </style>
@@ -294,6 +326,15 @@
                             <option value="Tea Room">Tea Room</option>
                         </select>
                     </div>
+                    
+                    <div class="filter-group">
+                        <label for="filterStatus">Filter by Status:</label>
+                        <select id="filterStatus">
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <table id="bookingsTable">
@@ -305,6 +346,7 @@
                             <th>Group Size</th>
                             <th>Booked By</th>
                             <th>Email</th>
+                            <th>Status</th>
                             <th>Notes</th>
                             <th>Admin Notes</th>
                             <th>Actions</th>
@@ -328,6 +370,7 @@
             const bookingsTable = document.getElementById('bookingsTable').getElementsByTagName('tbody')[0];
             const filterDate = document.getElementById('filterDate');
             const filterVenue = document.getElementById('filterVenue');
+            const filterStatus = document.getElementById('filterStatus');
             const confirmationMessage = document.getElementById('confirmationMessage');
             const startTime = document.getElementById('startTime');
             const endTime = document.getElementById('endTime');
@@ -362,6 +405,7 @@
                 // Get filter values
                 const dateFilter = filterDate.value;
                 const venueFilter = filterVenue.value;
+                const statusFilter = filterStatus.value;
                 
                 // Filter bookings
                 let filteredBookings = bookings;
@@ -374,6 +418,10 @@
                     filteredBookings = filteredBookings.filter(booking => booking.venue === venueFilter);
                 }
                 
+                if (statusFilter) {
+                    filteredBookings = filteredBookings.filter(booking => booking.status === statusFilter);
+                }
+                
                 // Sort bookings by date (most recent first)
                 filteredBookings.sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
                 
@@ -381,7 +429,7 @@
                 if (filteredBookings.length === 0) {
                     const row = bookingsTable.insertRow();
                     const cell = row.insertCell(0);
-                    cell.colSpan = 9;
+                    cell.colSpan = 10;
                     cell.textContent = 'No bookings found';
                     cell.style.textAlign = 'center';
                     return;
@@ -390,16 +438,31 @@
                 filteredBookings.forEach((booking, index) => {
                     const row = bookingsTable.insertRow();
                     
+                    // Add class for confirmed bookings
+                    if (booking.status === 'confirmed') {
+                        row.classList.add('confirmed-booking');
+                    }
+                    
                     row.insertCell(0).textContent = formatDate(booking.eventDate);
                     row.insertCell(1).textContent = `${booking.startTime} - ${booking.endTime}`;
                     row.insertCell(2).textContent = booking.venue;
                     row.insertCell(3).textContent = booking.groupSize;
                     row.insertCell(4).textContent = booking.bookedBy;
                     row.insertCell(5).textContent = booking.email;
-                    row.insertCell(6).textContent = booking.notes;
+                    
+                    // Status cell
+                    const statusCell = row.insertCell(6);
+                    const statusLabel = document.createElement('span');
+                    statusLabel.textContent = booking.status === 'confirmed' ? 'Confirmed' : 'Pending';
+                    statusLabel.classList.add('status-label');
+                    statusLabel.classList.add(booking.status === 'confirmed' ? 'status-confirmed' : 'status-pending');
+                    statusCell.appendChild(statusLabel);
+                    
+                    // Notes cell
+                    row.insertCell(7).textContent = booking.notes || '';
                     
                     // Admin notes cell
-                    const adminNotesCell = row.insertCell(7);
+                    const adminNotesCell = row.insertCell(8);
                     const adminNotesInput = document.createElement('textarea');
                     adminNotesInput.value = booking.adminNotes || '';
                     adminNotesInput.rows = 2;
@@ -422,7 +485,11 @@
                     adminNotesCell.appendChild(adminNotesInput);
                     
                     // Actions cell
-                    const actionsCell = row.insertCell(8);
+                    const actionsCell = row.insertCell(9);
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'action-buttons';
+                    
+                    // Cancel button
                     const deleteButton = document.createElement('button');
                     deleteButton.textContent = 'Cancel';
                     deleteButton.style.backgroundColor = '#e74c3c';
@@ -439,7 +506,34 @@
                             displayBookings();
                         }
                     };
-                    actionsCell.appendChild(deleteButton);
+                    actionsDiv.appendChild(deleteButton);
+                    
+                    // Confirm button - only show if not already confirmed
+                    if (booking.status !== 'confirmed') {
+                        const confirmButton = document.createElement('button');
+                        confirmButton.textContent = 'Confirm';
+                        confirmButton.style.backgroundColor = '#27ae60';
+                        confirmButton.onclick = function() {
+                            if (confirm('Confirm this booking? This will block this time slot from future bookings.')) {
+                                const bookingIndex = bookings.findIndex(b => 
+                                    b.eventDate === booking.eventDate && 
+                                    b.venue === booking.venue && 
+                                    b.startTime === booking.startTime &&
+                                    b.endTime === booking.endTime &&
+                                    b.bookedBy === booking.bookedBy
+                                );
+                                
+                                if (bookingIndex !== -1) {
+                                    bookings[bookingIndex].status = 'confirmed';
+                                    localStorage.setItem('bookings', JSON.stringify(bookings));
+                                    displayBookings();
+                                }
+                            }
+                        };
+                        actionsDiv.appendChild(confirmButton);
+                    }
+                    
+                    actionsCell.appendChild(actionsDiv);
                 });
             }
             
@@ -452,6 +546,16 @@
             function isValidBookingTime(start, end) {
                 // Ensure end time is after start time
                 return start < end;
+            }
+            
+            // Check if there's a confirmed booking that conflicts with the requested time
+            function hasConfirmedBookingConflict(date, venue, startTime, endTime) {
+                return bookings.some(booking => 
+                    booking.eventDate === date && 
+                    booking.venue === venue && 
+                    booking.status === 'confirmed' && 
+                    isTimeOverlap(startTime, endTime, booking.startTime, booking.endTime)
+                );
             }
             
             // Handle form submission
@@ -503,24 +607,30 @@
                     return;
                 }
                 
-                // Check for existing bookings on the same date and venue with overlapping times
+                // Check for confirmed booking conflicts
+                if (hasConfirmedBookingConflict(eventDate, venue, startTimeValue, endTimeValue)) {
+                    alert('This venue already has a confirmed booking that overlaps with your selected time period. Please choose a different time or venue.');
+                    return;
+                }
+                
+                // Check for existing bookings (pending) on the same date and venue with overlapping times
                 let timeConflict = false;
                 
                 bookings.forEach(booking => {
                     if (booking.eventDate === eventDate && booking.venue === venue) {
-                        // Check for time conflicts
-                        if (isTimeOverlap(startTimeValue, endTimeValue, booking.startTime, booking.endTime)) {
+                        // Check for time conflicts with pending bookings
+                        if (booking.status === 'pending' && isTimeOverlap(startTimeValue, endTimeValue, booking.startTime, booking.endTime)) {
                             timeConflict = true;
                         }
                     }
                 });
                 
                 if (timeConflict) {
-                    alert(`This venue already has a booking that overlaps with your selected time period. Please choose a different time or venue.`);
+                    alert(`This venue already has a pending booking that overlaps with your selected time period. Please choose a different time or venue.`);
                     return;
                 }
                 
-                // Add new booking
+                // Add new booking with pending status
                 const newBooking = {
                     eventDate,
                     startTime: startTimeValue,
@@ -530,7 +640,8 @@
                     bookedBy,
                     email,
                     notes,
-                    adminNotes: ''
+                    adminNotes: '',
+                    status: 'pending'
                 };
                 
                 bookings.push(newBooking);
@@ -553,6 +664,7 @@
             // Set up filter change handlers
             filterDate.addEventListener('change', displayBookings);
             filterVenue.addEventListener('change', displayBookings);
+            filterStatus.addEventListener('change', displayBookings);
             
             // Tab switching
             bookingTabBtn.addEventListener('click', function() {
@@ -594,6 +706,14 @@
             // Set default times
             startTime.value = "09:00";
             endTime.value = "10:00";
+            
+            // Initialize existing bookings with status if not present
+            bookings.forEach(booking => {
+                if (!booking.hasOwnProperty('status')) {
+                    booking.status = 'pending';
+                }
+            });
+            localStorage.setItem('bookings', JSON.stringify(bookings));
             
             // Initial display
             if (localStorage.getItem('isLoggedIn') === 'true') {

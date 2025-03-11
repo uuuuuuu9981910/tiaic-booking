@@ -151,21 +151,14 @@
             max-width: 200px;
         }
         
-        .time-slots {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .time-slot {
+        .time-input-group {
             display: flex;
+            gap: 15px;
             align-items: center;
         }
         
-        .time-slot input {
-            width: auto;
-            margin-right: 5px;
+        .time-input {
+            flex: 1;
         }
         
         @media (max-width: 768px) {
@@ -173,8 +166,13 @@
                 flex-direction: column;
             }
             
-            .time-slots {
-                grid-template-columns: repeat(2, 1fr);
+            .time-input-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .time-input {
+                width: 100%;
             }
         }
     </style>
@@ -202,21 +200,18 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="timeSlots">Time Slots (24-hour format):</label>
-                    <div class="time-slots">
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="08:00-09:00"> 08:00-09:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="09:00-10:00"> 09:00-10:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="10:00-11:00"> 10:00-11:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="11:00-12:00"> 11:00-12:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="12:00-13:00"> 12:00-13:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="13:00-14:00"> 13:00-14:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="14:00-15:00"> 14:00-15:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="15:00-16:00"> 15:00-16:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="16:00-17:00"> 16:00-17:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="17:00-18:00"> 17:00-18:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="18:00-19:00"> 18:00-19:00</div>
-                        <div class="time-slot"><input type="checkbox" name="timeSlot" value="19:00-20:00"> 19:00-20:00</div>
+                    <label>Time Period:</label>
+                    <div class="time-input-group">
+                        <div class="time-input">
+                            <label for="startTime">Start Time:</label>
+                            <input type="time" id="startTime" required min="08:00" max="19:00">
+                        </div>
+                        <div class="time-input">
+                            <label for="endTime">End Time:</label>
+                            <input type="time" id="endTime" required min="09:00" max="20:00">
+                        </div>
                     </div>
+                    <small>Operating hours: 08:00 - 20:00</small>
                 </div>
                 
                 <div class="form-group">
@@ -311,6 +306,7 @@
                             <th>Booked By</th>
                             <th>Email</th>
                             <th>Notes</th>
+                            <th>Admin Notes</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -333,6 +329,8 @@
             const filterDate = document.getElementById('filterDate');
             const filterVenue = document.getElementById('filterVenue');
             const confirmationMessage = document.getElementById('confirmationMessage');
+            const startTime = document.getElementById('startTime');
+            const endTime = document.getElementById('endTime');
             
             // Tabs
             const bookingTab = document.getElementById('bookingTab');
@@ -383,7 +381,7 @@
                 if (filteredBookings.length === 0) {
                     const row = bookingsTable.insertRow();
                     const cell = row.insertCell(0);
-                    cell.colSpan = 8;
+                    cell.colSpan = 9;
                     cell.textContent = 'No bookings found';
                     cell.style.textAlign = 'center';
                     return;
@@ -393,14 +391,38 @@
                     const row = bookingsTable.insertRow();
                     
                     row.insertCell(0).textContent = formatDate(booking.eventDate);
-                    row.insertCell(1).textContent = booking.timeSlots.join(', ');
+                    row.insertCell(1).textContent = `${booking.startTime} - ${booking.endTime}`;
                     row.insertCell(2).textContent = booking.venue;
                     row.insertCell(3).textContent = booking.groupSize;
                     row.insertCell(4).textContent = booking.bookedBy;
                     row.insertCell(5).textContent = booking.email;
                     row.insertCell(6).textContent = booking.notes;
                     
-                    const actionsCell = row.insertCell(7);
+                    // Admin notes cell
+                    const adminNotesCell = row.insertCell(7);
+                    const adminNotesInput = document.createElement('textarea');
+                    adminNotesInput.value = booking.adminNotes || '';
+                    adminNotesInput.rows = 2;
+                    adminNotesInput.style.width = '100%';
+                    adminNotesInput.addEventListener('change', function() {
+                        // Update the booking with the new admin notes
+                        const bookingIndex = bookings.findIndex(b => 
+                            b.eventDate === booking.eventDate && 
+                            b.venue === booking.venue && 
+                            b.startTime === booking.startTime &&
+                            b.endTime === booking.endTime &&
+                            b.bookedBy === booking.bookedBy
+                        );
+                        
+                        if (bookingIndex !== -1) {
+                            bookings[bookingIndex].adminNotes = adminNotesInput.value;
+                            localStorage.setItem('bookings', JSON.stringify(bookings));
+                        }
+                    });
+                    adminNotesCell.appendChild(adminNotesInput);
+                    
+                    // Actions cell
+                    const actionsCell = row.insertCell(8);
                     const deleteButton = document.createElement('button');
                     deleteButton.textContent = 'Cancel';
                     deleteButton.style.backgroundColor = '#e74c3c';
@@ -409,6 +431,8 @@
                             bookings.splice(bookings.findIndex(b => 
                                 b.eventDate === booking.eventDate && 
                                 b.venue === booking.venue && 
+                                b.startTime === booking.startTime &&
+                                b.endTime === booking.endTime &&
                                 b.bookedBy === booking.bookedBy
                             ), 1);
                             localStorage.setItem('bookings', JSON.stringify(bookings));
@@ -419,26 +443,41 @@
                 });
             }
             
+            // Check if two time ranges overlap
+            function isTimeOverlap(startA, endA, startB, endB) {
+                return (startA < endB && endA > startB);
+            }
+            
+            // Check if booking time is valid
+            function isValidBookingTime(start, end) {
+                // Ensure end time is after start time
+                return start < end;
+            }
+            
             // Handle form submission
             bookingForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
                 const eventDate = document.getElementById('eventDate').value;
-                const timeSlotCheckboxes = document.querySelectorAll('input[name="timeSlot"]:checked');
+                const startTimeValue = document.getElementById('startTime').value;
+                const endTimeValue = document.getElementById('endTime').value;
                 const venue = document.getElementById('venue').value;
                 const groupSize = document.getElementById('groupSize').value;
                 const bookedBy = document.getElementById('bookedBy').value;
                 const email = document.getElementById('email').value;
                 const notes = document.getElementById('notes').value;
                 
-                // Validate time slots
-                if (timeSlotCheckboxes.length === 0) {
-                    alert('Please select at least one time slot');
+                // Validate time inputs
+                if (!startTimeValue || !endTimeValue) {
+                    alert('Please select both start and end times');
                     return;
                 }
                 
-                // Get selected time slots
-                const timeSlots = Array.from(timeSlotCheckboxes).map(cb => cb.value);
+                // Check if end time is after start time
+                if (!isValidBookingTime(startTimeValue, endTimeValue)) {
+                    alert('End time must be after start time');
+                    return;
+                }
                 
                 // Basic validation for group size
                 const maxCapacity = {
@@ -464,36 +503,34 @@
                     return;
                 }
                 
-                // Check for existing bookings on the same date, venue and time
+                // Check for existing bookings on the same date and venue with overlapping times
                 let timeConflict = false;
-                const conflictingTimes = [];
                 
                 bookings.forEach(booking => {
                     if (booking.eventDate === eventDate && booking.venue === venue) {
-                        // Check for time slot conflicts
-                        timeSlots.forEach(timeSlot => {
-                            if (booking.timeSlots.includes(timeSlot)) {
-                                timeConflict = true;
-                                conflictingTimes.push(timeSlot);
-                            }
-                        });
+                        // Check for time conflicts
+                        if (isTimeOverlap(startTimeValue, endTimeValue, booking.startTime, booking.endTime)) {
+                            timeConflict = true;
+                        }
                     }
                 });
                 
                 if (timeConflict) {
-                    alert(`This venue is already booked for ${formatDate(eventDate)} during the following times: ${conflictingTimes.join(', ')}. Please select different time slots.`);
+                    alert(`This venue already has a booking that overlaps with your selected time period. Please choose a different time or venue.`);
                     return;
                 }
                 
                 // Add new booking
                 const newBooking = {
                     eventDate,
-                    timeSlots,
+                    startTime: startTimeValue,
+                    endTime: endTimeValue,
                     venue,
                     groupSize,
                     bookedBy,
                     email,
-                    notes
+                    notes,
+                    adminNotes: ''
                 };
                 
                 bookings.push(newBooking);
@@ -553,6 +590,10 @@
             // Set minimum date to today
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('eventDate').min = today;
+            
+            // Set default times
+            startTime.value = "09:00";
+            endTime.value = "10:00";
             
             // Initial display
             if (localStorage.getItem('isLoggedIn') === 'true') {
